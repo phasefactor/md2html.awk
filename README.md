@@ -43,14 +43,14 @@ The only action that happened frequently enough to deserve a function was checki
 ## Notes on Specific Segments
 Notes for future me (or whoever else might look at this code).
 
-### block quotes
+### Blockquote
 Initially match any number of `> ` at the beginning of the current line.  Conveniently, `RLENGTH/2` tells us how many levels of blockquotes we have.
 
 Compare that to `quot`.  If we are too low, then print a new \<blockquote\>.  If we are too high, then print a \<\/blockquote\>.  Then update `quot`.
 
 The else-if block triggers on the line after the blockquote ends.  So print \<\/blockquote\> and update `quot`.
 
-### headers
+### Header
 Matches any number of `#` followed by a space.  Conveniently, `RLENGTH-1` indicates the header level.
 
 Replace the matched pattern with `<h(RLENGTH-1)>` and append `</h(RLENGTH-1)>` to the end of the line.
@@ -58,6 +58,8 @@ Replace the matched pattern with `<h(RLENGTH-1)>` and append `</h(RLENGTH-1)>` t
 There might be italics, links, or other inline stuff in the line still so we should continue processing the line.
 
 The else block catches the fact that we are not in a paragraph currently and starts one.  Turns out this is the only place this needs to happen.
+
+This should probably test for a maximum length of six `#` in a row, but currently does not.
 
 ### Order Matters
 Order matters in several places.  Some are trivial: blank lines and horizontal rules are processed as early as possible to skip further processing if the line matches.
