@@ -62,7 +62,7 @@ BEGIN {
 # process input line by line
 {   
     # blank lines
-    if (match($0, /^$/)) {
+    if (match($0, /^$/) && code==0) {
         # end current paragraph 
         pclose();
         # otherwise skip processing blank lines
@@ -70,7 +70,7 @@ BEGIN {
     }
     
     # horizontal rule
-    if (match($0, /^\-\-\-$/) && para==0) {
+    if (match($0, /^\-\-\-$/) && para==0 && code==0) {
         printf "<hr>";
         next;
     }
@@ -78,17 +78,18 @@ BEGIN {
     # block quotes
     if (match($0, /(^\>)+ /)) {
         # still at the same quote depth?
-        while (quot < RLENGTH/2) {
+        while (quot < RLENGTH/2 && code==0) {
             pclose();
             printf "<blockquote>";
             quot++;
         }
         
-        while (quot > RLENGTH/2) {
+        while (quot > RLENGTH/2 && code==0) {
             pclose();
             printf "</blockquote>";
             quot--;
         }
+        
         $0 = substr($0, RLENGTH+1)
     } else if (quot > 0) {
         printf "</blockquote>";
@@ -96,7 +97,7 @@ BEGIN {
     }  
         
     # code blocks
-    if (match($0, /^\`\`\`$/)) {
+    if (match($0, /^(\> )*\`\`\`$/)) {
         if (code > 0) {
             code = 0;
             printf "</code>";
