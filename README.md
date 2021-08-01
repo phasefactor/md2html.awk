@@ -1,5 +1,5 @@
 # md2html.awk
-AWK script to convert a basic subset of MD to HTML.
+AWK script to convert a basic subset of MD to HTML.  Written to work with `awk version 20070501` that ships with macOS (at least up to Catalina).
 
 Currently generates the \<html\>, \<head\>, and \<body\> tags.  Possibly better if this is handled separately so that this can process MD and the HTML can be injected into the \<body\> of a template.
 
