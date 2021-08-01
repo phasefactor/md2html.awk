@@ -8,6 +8,13 @@ Currently generates the \<html\>, \<head\>, and \<body\> tags.  Possibly better 
 awk -f md2html.awk filename.md > filename.html
 ```
 
+Alternately, set `md2html.awk` as executable:
+```
+chmod +x md2html.awk
+./md2html.awk filename.md > filename.html
+```
+
+
 ## Supported Syntax
 - \*\*bold\*\*
 - \*italic\*
