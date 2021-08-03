@@ -1,7 +1,7 @@
 # md2html.awk
 AWK script to convert a basic subset of MD to HTML.  Written to work with `awk version 20070501` that ships with macOS (at least up to Catalina).
 
-Currently generates the \<html\>, \<head\>, and \<body\> tags.  Possibly better if this is handled separately so that this can process MD and the HTML can be injected into the \<body\> of a template.
+Does not generate the \<html\>, \<head\>, and \<body\> tags.  Use [makesite.awk](https://github.com/quBASIC/makesite.awk) or similar to generate that stuff.
 
 ## Usage
 ```
@@ -26,18 +26,15 @@ chmod +x md2html.awk
 - \> blockquotes
 - two spaces at end of line forces line break
 
-## HTML \<head\> Section
-By default the \<head\> is empty.  Manually update `md2html.awk` with your \<style\>'s, etc. 
-
-Later I might add a command line argument to specify a file to insert.
+  
 
 ## Thoughts on the Implementation
 I tried to keep the implementation as portable as possible by avoiding `gensub()` and other features from GAWK.
 
 General plan is unexciting:
-- Handle the HTML preamble in the BEGIN pattern.
+- Setup some globals in the BEGIN pattern.
 - Process all lines of input in the empty pattern (by default applied to all lines). 
-- Close out the \<body\> and \<html\> tags in the END pattern.
+- Cleanup any open \<p\>, \<pre\>, or \<blockquote\> tags in the END pattern.
 
 The bold, italic, inline code, images, and links can be handled with no knowledge outside the current line.
 
@@ -45,10 +42,13 @@ Whether the parser is currently in a paragraph or code block needs to be tracked
 
 Multiple levels of blockquote are supported, so the state variable is an integer tracking the current level of nesting.
 
-The only action that happened frequently enough to deserve a function was checking if we were in a paragraph and inserting the closing tag if so.
+The only action that happened frequently enough to deserve a function was checking if the parser is in a paragraph and inserting the closing tag if so.
 
 ## Notes on Specific Segments
 Notes for future me (or whoever else might look at this code).
+
+### Code Blocks
+Initially used \<code\> on inline and block quotes, but switched block quotes to \<pre\>.  This is what GitHub's parser seems to do, and it made my CSS simpler in practice.
 
 ### Blockquote
 Initially match any number of `> ` at the beginning of the current line.  Conveniently, `RLENGTH/2` tells us how many levels of blockquotes we have.
@@ -77,4 +77,4 @@ The regex pattern can be made much simpler if all bolds are handled first and th
 
 The same for images and links.  If links are matched first, then the regex has to match the non-! character to be sure it is not a link.  This could be fixed by shifting the `substr()` indexs around, but if images are processed first then the only remaining things MUST be links.
 
-
+Order of \<blockqutes\>, \<p\>, and \<code\> in the END pattern cleanup step matters.  The \<code\> and \<p\> tags can happen inside of \<blockquote\>, so both need to be checked and handled before \<blockquote\>.
