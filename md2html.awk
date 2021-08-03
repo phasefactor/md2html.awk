@@ -158,7 +158,7 @@ BEGIN {
 END {    
     # still in a code block?
     if (code > 0)
-        printf("</code>");
+        printf("</pre>");
 
     # probably still in a paragraph
     pclose();
