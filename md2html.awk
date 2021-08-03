@@ -2,7 +2,7 @@
 
 # md2html.awk
 #
-# Generate HTML output from MarkDown - v1
+# Generate HTML output from MarkDown - v2
 #
 # Usage:
 # awk -f md2html.awk filename.md > filename.html
@@ -25,7 +25,7 @@
 
 # #####################################################
 # functions for common actions
-
+#
 # check if in paragraph and close if so
 function pclose(){
     if (para > 0) {
@@ -36,19 +36,10 @@ function pclose(){
 
 
 
-
-
-
 # #####################################################
 # print header and opening body tag
+#
 BEGIN {
-    print "<html><head>"
-    
-    # FIXME - add command line option for 
-    #         custom header template
-    
-    print "</head><body>"
-
     # setup state variables
     code = 0;
     para = 0;
@@ -57,9 +48,9 @@ BEGIN {
 
 
 
-
 # #####################################################
 # process input line by line
+#
 {   
     # blank lines
     if (match($0, /^$/) && code==0) {
@@ -100,12 +91,12 @@ BEGIN {
     if (match($0, /^(\> )*\`\`\`$/)) {
         if (code > 0) {
             code = 0;
-            printf "</code>";
+            printf "</pre>";
             next;
         } else {
             pclose();
             code = 1;
-            printf "<code>";
+            printf "<pre>";
             next;
         }
     }
@@ -140,7 +131,6 @@ BEGIN {
     while (match($0, /\`[^`]+\`/))
         $0 = substr($0, 1, RSTART-1) "<code>" substr($0, RSTART+1,RLENGTH-2) "</code>" substr($0, RSTART+RLENGTH)
     
-
     # images
     while (match($0, /!\[.*\]\(.*\)/)) {
         split(substr($0, RSTART+2, RLENGTH-3), a, /\]\(/);
@@ -153,7 +143,6 @@ BEGIN {
         $0 = substr($0, 1, RSTART-1) "<a href=\"" a[2] "\">" a[1] "</a>" substr($0, RSTART+RLENGTH);        
     }
 
-
     # line break
     gsub(/(  )$/, "<br>");
 
@@ -164,9 +153,19 @@ BEGIN {
 
 
 # #####################################################
-# print closing body and html tags
-END {
+# cleanup
+#
+END {    
+    # still in a code block?
+    if (code > 0)
+        printf("</code>");
+
     # probably still in a paragraph
     pclose();
-    print "</body></html>";
+    
+    # still in a blockquote?
+    while (quot > 0) {
+        printf("</blockquote>");
+        quot--;
+    }
 }
