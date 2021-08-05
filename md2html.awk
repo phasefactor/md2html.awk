@@ -74,7 +74,7 @@ BEGIN {
     if (match($0, /^( )*$/) && code==0) {
         # if currently in paragraph, end paragraph 
         pclose();
-        
+
         # dislike this placement, but best option
         # that I can currently find for it
         while (quot > 0) {
@@ -86,17 +86,34 @@ BEGIN {
         next;
     }
     
+    # ampersand must be escaped first
+    gsub("&", "\\&amp;")
+
+    # escape -'s before checking for hr
+    gsub(/\\-/, "\\\&#45;");
+    
     # horizontal rule
     if (match($0, /^\-\-\-$/) && para==0 && code==0) {
         printf("<hr>");
         next;
     }
 
-
-    # replace &, <, and > with escape sequences
-    gsub("&", "\\&amp;")
-    gsub("<", "\\&lt;")
-    gsub(">", "\\&gt;")
+    # do the rest of the escape sequences
+    gsub(/\\\!/, "\\\&#33;");
+    gsub(/\\\#/, "\\\&#35;");
+    gsub(/\\\*/, "\\\&#42;");
+    gsub(/\\\+/, "\\\&#43;");
+    gsub(/\\\./, "\\\&#46;");
+    gsub(/\\?</, "\\&#60;");
+    gsub(/\\?>/, "\\&#62;");
+    gsub(/\\\[/, "\\\&#91;");
+    gsub(/\\\\/, "\\\&#92;");
+    gsub(/\\\]/, "\\\&#93;");
+    gsub(/\\_/,  "\\\&#95;");
+    gsub(/\\`/,  "\\\&#96;");
+    gsub(/\\\{/, "\\\&#123;");
+    gsub(/\\\|/, "\\\&#124;");
+    gsub(/\\\}/, "\\\&#125;");
         
     # code blocks
     if (match($0, /^(\> )*\`\`\`$/)) {
