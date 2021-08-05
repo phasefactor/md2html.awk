@@ -27,17 +27,17 @@
 # functions for common actions
 #
 # check if in paragraph and close if so
-function pclose(){
+function pclose() {
     if (para > 0) {
         para = 0;
-        printf "</p>";
+        printf("</p>");
     }
 }
 
 
 
 # #####################################################
-# print header and opening body tag
+# run prior to processing any text
 #
 BEGIN {
     # setup state variables
@@ -52,58 +52,69 @@ BEGIN {
 # process input line by line
 #
 {   
-    # blank lines
-    if (match($0, /^$/) && code==0) {
-        # end current paragraph 
-        pclose();
-        # otherwise skip processing blank lines
-        next;
-    }
-    
-    # horizontal rule
-    if (match($0, /^\-\-\-$/) && para==0 && code==0) {
-        printf "<hr>";
-        next;
-    }
-
     # block quotes
-    if (match($0, /(^\>)+ /)) {
+    if (match($0, /^(> )+/)) {
         # still at the same quote depth?
         while (quot < RLENGTH/2 && code==0) {
             pclose();
-            printf "<blockquote>";
+            printf("<blockquote>");
             quot++;
         }
         
         while (quot > RLENGTH/2 && code==0) {
             pclose();
-            printf "</blockquote>";
+            printf("</blockquote>");
             quot--;
         }
         
-        $0 = substr($0, RLENGTH+1)
-    } else if (quot > 0) {
-        printf "</blockquote>";
-        quot--;
-    }  
+        sub(/^(> )+/, "")
+    } 
+
+    # blank lines
+    if (match($0, /^( )*$/) && code==0) {
+        # if currently in paragraph, end paragraph 
+        pclose();
+        
+        # dislike this placement, but best option
+        # that I can currently find for it
+        while (quot > 0) {
+            quot--;
+            printf("</blockquote>");
+        }
+
+        # skip further processing of blank lines
+        next;
+    }
+    
+    # horizontal rule
+    if (match($0, /^\-\-\-$/) && para==0 && code==0) {
+        printf("<hr>");
+        next;
+    }
+
+
+    # replace &, <, and > with escape sequences
+    gsub("&", "\\&amp;")
+    gsub("<", "\\&lt;")
+    gsub(">", "\\&gt;")
         
     # code blocks
     if (match($0, /^(\> )*\`\`\`$/)) {
         if (code > 0) {
             code = 0;
-            printf "</pre>";
+            printf("</pre>");
             next;
         } else {
             pclose();
             code = 1;
-            printf "<pre>";
+            printf("<pre>");
             next;
         }
     }
     
     # skip MD processing inside of code blocks
     if (code > 0) {
-        print $0;
+        print($0);
         next;
     }
     
@@ -146,8 +157,8 @@ BEGIN {
     # line break
     gsub(/(  )$/, "<br>");
 
-    # processing done, print line
-    print $0;
+    # processing done, print the line
+    print($0);
 }
 
 
@@ -158,7 +169,7 @@ BEGIN {
 END {    
     # still in a code block?
     if (code > 0)
-        printf("</pre>");
+        printf("</code>");
 
     # probably still in a paragraph
     pclose();
