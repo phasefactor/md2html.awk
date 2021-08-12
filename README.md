@@ -1,6 +1,8 @@
 # md2html.awk
 AWK script to convert a basic subset of MD to HTML.  
 
+***NOTE** - The current rewrite has some logical issues with nested lists.  I will get to them in the next iteration.*
+
 Only uses the parts of MD that I want to use, and with the syntax that I use.  Little or no handling for incorrect syntax.
 
 Written to work with `awk version 20070501` that ships with macOS (at least up to Catalina).
