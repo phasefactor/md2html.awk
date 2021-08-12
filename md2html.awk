@@ -2,238 +2,297 @@
 
 # md2html.awk
 #
-# Generate HTML output from MarkDown - v3
+# Generate HTML output from MarkDown - v4
 #
 # Usage:
 # awk -f md2html.awk filename.md > filename.html
 # 
 # #####################################################
 #
-# Understands most common MD:
-#
-# **text** for bold, *test* for italic,
+# MarkDown's "standard" is a mess.  This script is for
+# my own use, and only understands the opinionated and 
+# minimal subset of MD that I actually use:
+# **text** for bold, 
+# *test* for italic,
+# `some text` for inline code, 
 # ![alt text](source url) for images,
 # [text](destination url) for links,
 # two spaces at  end of line forces line break,
-# `some text` for code, --- alone for horizontal rule,
+# --- alone for horizontal rule,
 # ``` above and below for a code block,
-# > indicates a blockquote (can be nested "> > ...")
-#
+# > blockquote (can be nested "> > ..."),
+# 1-6 #'s followed by a space for h1-6,
+# 1. ordered list, 
+# * unordered list (0-3 spaces before *, one after)
 # #####################################################
 
 
-
 # #####################################################
-# functions for common actions
-#
-
-
-
-
-
-
+#                     Functions
 # #####################################################
-# run prior to processing any text
-#
-BEGIN {
-    bt[1] = "";
-    bs    = 0;
-    qd    = 0;
-    il    = 0;
-    nl    = 0;
+function rec_close(i, j) {
+    if (length(blocks) > 0) {
+        if (i < length(blocks)) {
+            for (j = length(blocks); j > i; j--) {
+                el = substr(blocks, length(blocks));
+
+                if (el == "b") {
+                    printf("</blockquote>");
+                } else if (el == "c") {
+                    printf("</pre>");
+                } else if (el == "o") {
+                    printf("</ol>");
+                } else if (el == "u") {
+                    printf("</ul>");
+                } else if (el == "l") {
+                    printf("</li>");
+                } else {
+                    printf("</p>");
+                }
+
+                sub(/[a-z]$/, "", blocks);
+            }
+        }
+    } 
 }
 
 
 
 # #####################################################
-# process input line by line
-#
-{
-    # minimal amount of escaping to make HTML not spaz
-    gsub("&", "\\&amp;");
-    gsub(/\\?</, "\\&lt;");
+#                     Patterns
+# #####################################################
+BEGIN {
+    blocks = "";
+}
 
-    if (bt[length(bt)] == "pre") {
-        if (qd > 0)
-            for (i = 0; i < qd; i++)
-                sub(/^(> )/, "");    
+
+
+# #####################################################
+{
+    # handle being inside a code block
+    if (substr(blocks, length(blocks)) == "c" ) {
+        for (i = 0; i < length(blocks)-1; i++) {
+        # we are assuming that the file is well-
+        # formed here... a dangerous assumption
+            sub(/^((    )|(> ))/, "");
+        }
+        
+    
         if ($0 ~ /^```$/) {
             print("</pre>");
-            delete bt[length(bt)];            
-        } else {
+            sub(/c$/, "", blocks);
+        } else {       
+            # minimal escaping to make HTML not spaz
+            gsub("&", "\\&amp;");
+            gsub(/\\?</, "\\&lt;");
             print($0);
         }        
-        next;
-    }
-
-    if (match($0, /^(> )+/)) {
-        if (qd != RLENGTH/2) {
-            while (qd < RLENGTH/2) {        
-                if (bt[length(bt)] == "p") {
-                    print("</p>");
-                   delete bt[length(bt)];
-                }
-            
-                bt[(length(bt)+1)] = "blockquote";
-                printf("<blockquote>");
-                qd++;
-            }
-            while (qd > RLENGTH/2 && length(bt) > 1) {
-                if (bt[length(bt)] == "blockquote") 
-                    qd--;
-                    
-                print("</" bt[length(bt)] ">");
-                delete bt[length(bt)];
-            } 
-        }
-        
-        for (i = 0; i < qd; i++)
-            sub(/^(> )/, "");    
-    } else if (qd > 0 && bs > 0) {
-        # non-zero quote depth and blank lines skipped
-        while (qd > 0 && length(bt) > 1) {
-            if (bt[length(bt)] == "blockquote") 
-                qd--;
-                    
-            print("</" bt[length(bt)] ">");
-            delete bt[length(bt)];
-        } 
-    }
-
-
-    if ($0 ~ /^( )*$/) {
-        bs++;
+        # no further processing necessary in code block
         next;
     }
     
-    # indenting four spaces continues many block elements
-    if (match($0, /^(    )*/)) {
-        il = RLENGTH/4;
-        # clean-up all the extra spaces
-        sub(/^(    )+/, "");
+    # blank line
+    if ($0 ~ /^$/) {
+        rec_close(0);
+        next;
+    }   
+ 
+    # hr
+    if ($0 ~ /^( )*---+( )*$/) {
+        if (substr(blocks, length(blocks)) == "p") {
+            printf("</p>");
+            sub(/[a-z]$/, "", blocks);
+        }
+        print("<hr>");
+        next;
+    }
+
+
+
+    # are we still in a block?
+    if (length(blocks) > 0) {
+        # awk string indexing is gross
+	for (i = 1; i <= length(blocks); i++) {
+            el = substr(blocks, i, 1);
+
+            if (el == "b") {
+                if (sub(/^(> )/, "") == 1) {
+                    continue;
+                } else {
+                    rec_close(i);
+                }
+            } else {
+                if (el == "ol" || el == "ul") {
+                    if (sub(/^(    )/, "") == 1) {
+                        continue;
+                    } else {
+                        # is it the right kind of list?
+                        if (el=="u" && $0 ~ /^( )?( )?( )?(\*|\+|-)( )+/ ) {
+                            rec_close(i+1);
+                        } else if (el=="o" && sub(/^( )*[0-9]+\.( )+/, "") == 1) {
+                            rec_close(i+1);
+                        } else
+                            rec_close(i);
+                    }
+                }
+            }
+        }
+    }
+    # existing block elements should be handled
+ 
+    # check for new block elements
+    if (sub(/^(> )/, "") == 1) {
+        if (substr(blocks, length(blocks)) == "p") {
+            printf("</p>");
+            sub(/[a-z]$/, "", blocks);
+        }
+        blocks = blocks "b";
+        printf("<blockquote>");
+    }
+
+    # level of indention should not matter at this point
+    # so ( )* instead of ( )? x3 to clean up whitespace
+    if (sub(/^( )*(\*|\+|-)( )+/, "") == 1) {
+        if (substr(blocks, length(blocks)) == "p") {
+            printf("</p>");
+            sub(/[a-z]$/, "", blocks);
+        }
+        if (substr(blocks, length(blocks)) == "l") {
+            printf("</li>");
+            sub(/[a-z]$/, "", blocks);
+        }
+
+	if (substr(blocks, length(blocks)) == "u") {
+            printf("<li>");
+            blocks = blocks "l";
+        } else {
+            printf("<ul><li>");
+            blocks = blocks "ul";
+        }
+    } else if (sub(/^( )*[0-9]+\.( )+/, "") == 1) {
+        if (substr(blocks, length(blocks)) == "p") {
+            printf("</p>");
+            sub(/[a-z]$/, "", blocks);
+        }
+        if (substr(blocks, length(blocks)) == "l") {
+            printf("</li>");
+            sub(/[a-z]$/, "", blocks);
+        }
+
+	if (substr(blocks, length(blocks)) == "o") {
+            printf("<li>");
+            blocks = blocks "l";
+        } else {
+            printf("<ol><li>");
+            blocks = blocks "ol";
+        }
+    }
+
+
+
+
+    # start a new code block
+    if ($0 ~ /^```$/) {
+        if (substr(blocks, length(blocks)) == "p") {
+            printf("</p>");
+            sub(/[a-z]$/, "", blocks);
+        }
+
+        print("<pre>");
+        blocks = blocks "c";
+        next;
     } 
 
-    
-    if (il+1 < nl) {
-        while (il < nl && bt[length(bt)] > 1) {
-            if (bt[length(bt)] == "ul" || bt[length(bt)] == "ol") 
-                nl--;
-                    
-            print("</" bt[length(bt)] ">");
-            delete bt[length(bt)];
-        }
-    }
-    
-
-    if ($0 ~ /^```$/) {
-        if (bt[length(bt)] == "p") {
-            print("</p>");
-            delete bt[length(bt)];
-        }
-
-        bt[(length(bt)+1)] = "pre";
-        printf("<pre>");
-        next;
-    }
-
-
-    if ($0 ~ /^( )*(\*|\+|-)( )+[^ ]/) {
-        if (nl == il) {
-            nl++;
-            bs = 0;
-            bt[(length(bt)+1)] = "ul";
-            printf("<ul>");
-        }
         
-        if (bt[length(bt)] == "li") {
-            print("</li><li>");
-        } else if (bt[length(bt)] == "p") {
-            print("</p></li><li>");
-            delete bt[length(bt)];
-        } else {
-            bt[(length(bt)+1)] = "li";
-            printf("<li>");
-        }
-        sub(/^( )*(\*|\+|-)( )+/, "");
-    } else if ($0 ~ /^( )*[0-9]+\.( )+[^ ]/) {
-        if (nl == il) {
-            nl++;
-            bs = 0;
-            bt[(length(bt)+1)] = "ol";
-            printf("<ol>");
-        }
-        
-        if (bt[length(bt)] == "li") {
-            print("</li><li>");
-        } else {
-            bt[(length(bt)+1)] = "li";
-            printf("<li>");
-        }
-        sub(/^( )*[0-9]+\.( )+/, "");
-    }
-    
-    if (nl > 0 && bs > 0 && il < nl) {
-        while (nl > 0 && length(bt) > 1) {
-            if (bt[length(bt)] == "ul" || bt[length(bt)] == "ol") 
-                nl--;
-                    
-            print("</" bt[length(bt)] ">");
-            delete bt[length(bt)];        
-        }
-    }
-    
     # ###### h1 - h6 ######
-    if (match($0, /^\#+ /)) { 
-        if (bt[length(bt)] == "p") {
-            print("</p>");
-            delete bt[length(bt)];
-        }
-    	sub(/( )*#+$/, "");
-        $0 = "<h" RLENGTH-1 ">" substr($0, RLENGTH+1) "</h" RLENGTH-1 ">";
-    } else {
-        # start paragraphs
-        if (bt[length(bt)] != "p" && bt[length(bt)] != "li" || il > 0 || (bt[length(bt)] == "p" && bs > 0)) {
-                if (bt[length(bt)] == "p") {
-                    print("</p>");
-                   delete bt[length(bt)];
-                }
-            
+    if (match($0, /^#+ /)) {
+        sub(/^#+( )*/, "");
+        # also clear trailing #'s
+        sub(/( )*#+$/, "");
 
-             bt[(length(bt)+1)] = "p";
-             printf("<p>");            
+        # insert anchors on headers
+        a = $0;
+        gsub(/( )/, "-", a);
+        gsub(/[^a-zA-Z0-9_-]/, "", a);
+
+        # do not want duplicate labels
+        if (length(labels) > 0) {
+            j = 0;
+            for (i = 0; i < length(labels); i++) {
+                #  this is mildly janky
+                if (a == labels[i]) {
+                    if (j == 0) {
+                        a = a "-" ++j;
+                    } else {
+                        sub(/-[0-9]+$/, "-" ++j, a);
+                    }
+                }
+            }
+            labels[length(labels)] = a;
+        } else {
+            labels[0] = a;
+        }
+        a = "<a name='" tolower(a) "'></a>";
+        
+        $0 = "<h" RLENGTH-1 ">" a $0 "</h" RLENGTH-1 ">";        
+    } else {
+        # no other block elements match, start a <p>
+        if (substr(blocks, length(blocks)) != "p") {
+                blocks = blocks "p";
+                printf("<p>");
         }
     }
 
+    
+    # Process inline elements
+    
     # **bold** 
-    while (match($0, /\*\*[^(**)]+\*\*/))
-        $0 = substr($0, 1, RSTART-1) "<strong>" substr($0, RSTART+2,RLENGTH-4) "</strong>" substr($0, RSTART+RLENGTH)
+    while (match($0, /\*\*[^(**)]+\*\*/)) {
+	    a = substr($0, 1, RSTART-1);
+        b = substr($0, RSTART+2,RLENGTH-4);
+        c = substr($0, RSTART+RLENGTH);
+        $0 = a "<strong>" b "</strong>" c;
+    }
     
     # *italic*
-    while (match($0, /\*[^*]+\*/))
-        $0 = substr($0, 1, RSTART-1) "<em>" substr($0, RSTART+1,RLENGTH-2) "</em>" substr($0, RSTART+RLENGTH)
-
-    # `inline code`
-    while (match($0, /\`[^`]+\`/))
-        $0 = substr($0, 1, RSTART-1) "<code>" substr($0, RSTART+1,RLENGTH-2) "</code>" substr($0, RSTART+RLENGTH)
-    
-    # ![image](URL)
-    while (match($0, /!\[.*\]\(.*\)/)) {
-        split(substr($0, RSTART+2, RLENGTH-3), a, /\]\(/);
-        $0 = substr($0, 1, RSTART-1) "<img src=\"" a[2] "\">" a[1] "</img>" substr($0, RSTART+RLENGTH);
+    while (match($0, /\*[^*]+\*/)) {
+        a = substr($0, 1, RSTART-1);
+        b = substr($0, RSTART+1,RLENGTH-2);
+        c = substr($0, RSTART+RLENGTH);
+        $0 = a "<em>" b "</em>" c;
     }
 
+    # `inline code`
+    while (match($0, /\`[^`]+\`/)){
+        a = substr($0, 1, RSTART-1);
+        b = substr($0, RSTART+1,RLENGTH-2);
+        c = substr($0, RSTART+RLENGTH);
+
+        # need to escape HTML in code segments
+        gsub("&", "\\&amp;", b);
+        gsub(/\\?</, "\\&lt;", b);
+
+        $0 = a "<code>" b "</code>" c;
+    }
+    
+    # ![image](URL)
+        while (match($0, /!\[.*\]\(.*\)/)) {
+            a = substr($0, 1, RSTART-1);
+            c = substr($0, RSTART+RLENGTH);
+            split(substr($0, RSTART+2, RLENGTH-3), arr, /\]\(/);
+            $0 = a "<img src=\"" arr[2] "\">" arr[1] "</img>" c;
+    }
+                            
     # [links](URL)
-    while (match($0, /\[.*\]\(.*\)/)) {
-        split(substr($0, RSTART+1, RLENGTH-2), a, /\]\(/);
-        $0 = substr($0, 1, RSTART-1) "<a href=\"" a[2] "\">" a[1] "</a>" substr($0, RSTART+RLENGTH);        
+        while (match($0, /\[.*\]\(.*\)/)) {
+            a = substr($0, 1, RSTART-1);
+            c = substr($0, RSTART+RLENGTH);
+            split(substr($0, RSTART+1, RLENGTH-2), arr, /\]\(/);
+            $0 = a "<a href=\"" arr[2] "\">" arr[1] "</a>" c;        
     }
 
     # line break
     gsub(/(  )$/, "<br>");
-
-    
-    # reset blank lines skipped
-    bs = 0;
     
     print($0);
 }
@@ -241,11 +300,7 @@ BEGIN {
 
 
 # #####################################################
-# cleanup
-#
 END {
-    while (bt[length(bt)] > 1) {
-        printf("</" bt[length(bt)] ">");
-        delete bt[length(bt)];        
-    }
+    # clean up anything still open    
+    rec_close(0);
 }
