@@ -122,17 +122,17 @@ BEGIN {
                     rec_close(i);
                 }
             } else {
-                if (el == "ol" || el == "ul") {
+                if (el == "o" || el == "u") {
                     if (sub(/^(    )/, "") == 1) {
                         continue;
                     } else {
                         # is it the right kind of list?
                         if (el=="u" && $0 ~ /^( )?( )?( )?(\*|\+|-)( )+/ ) {
-                            rec_close(i+1);
-                        } else if (el=="o" && sub(/^( )*[0-9]+\.( )+/, "") == 1) {
-                            rec_close(i+1);
-                        } else
                             rec_close(i);
+                        } else if (el=="o" && sub(/^( )*[0-9]+\.( )+/, "") == 1) {
+                            rec_close(i);
+                        } else
+                            rec_close(i-1);
                     }
                 }
             }
