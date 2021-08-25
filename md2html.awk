@@ -107,8 +107,6 @@ BEGIN {
         next;
     }
 
-
-
     # are we still in a block?
     if (length(blocks) > 0) {
         # awk string indexing is gross
@@ -127,12 +125,19 @@ BEGIN {
                         continue;
                     } else {
                         # is it the right kind of list?
-                        if (el=="u" && $0 ~ /^( )?( )?( )?(\*|\+|-)( )+/ ) {
+                        if (el=="u" && sub(/^( )?( )?( )?(\*|\+|-)( )+/, "") == 1 ) {
                             rec_close(i);
+                            printf("<li>");
+                            blocks = blocks "l";
                         } else if (el=="o" && sub(/^( )*[0-9]+\.( )+/, "") == 1) {
                             rec_close(i);
-                        } else
+                            printf("<li>");
+                            blocks = blocks "l";
+                        } else {
+                            # must be something completely different
+                            # close everything including this item
                             rec_close(i-1);
+                        }
                     }
                 }
             }
@@ -162,13 +167,8 @@ BEGIN {
             sub(/[a-z]$/, "", blocks);
         }
 
-	if (substr(blocks, length(blocks)) == "u") {
-            printf("<li>");
-            blocks = blocks "l";
-        } else {
-            printf("<ul><li>");
-            blocks = blocks "ul";
-        }
+        printf("<ul><li>");
+        blocks = blocks "ul";
     } else if (sub(/^( )*[0-9]+\.( )+/, "") == 1) {
         if (substr(blocks, length(blocks)) == "p") {
             printf("</p>");
@@ -179,13 +179,8 @@ BEGIN {
             sub(/[a-z]$/, "", blocks);
         }
 
-	if (substr(blocks, length(blocks)) == "o") {
-            printf("<li>");
-            blocks = blocks "l";
-        } else {
-            printf("<ol><li>");
-            blocks = blocks "ol";
-        }
+        printf("<ol><li>");
+        blocks = blocks "ol";
     }
 
 
